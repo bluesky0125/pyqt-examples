@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Apr  6 00:02:12 2018
-
-@author: stephen
+@author: frank
 """
 
 import sys
