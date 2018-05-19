@@ -21,6 +21,7 @@ from PyQt5.QtGui import QImage,QPixmap
 
 import cv2
 import os
+import time
 
 class Thread(QThread):
     changePixmap = pyqtSignal(QPixmap)
@@ -40,6 +41,9 @@ class Thread(QThread):
             ret, frame = cap.read()
             if ret is False:
                 break
+            #time.sleep(10)
+            height, width, channels = frame.shape
+            frame = cv2.resize(frame,(int(width/4)*4, int(height/4)*4))
             rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             convertToQtFormat = QImage(rgbImage.data, rgbImage.shape[1], rgbImage.shape[0], QImage.Format_RGB888)
             convertToQtFormat = QPixmap.fromImage(convertToQtFormat)
