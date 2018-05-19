@@ -26,9 +26,11 @@ from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QImage,QPixmap
 
 import numpy as np
+#import time
 
 class Thread(QThread):
     changePixmap = pyqtSignal(QPixmap)
+
     def __init__(self, parent=None):
         QThread.__init__(self, parent=parent)
         self.filepath = None
@@ -37,10 +39,10 @@ class Thread(QThread):
         self.isfinished = False
         self.estimator = None
         self.image = np.zeros((self.height,self.width,3), dtype=np.uint8)
-        
+
     def isFinished(self):
         return self.isfinished
- 
+    
     def refresh(self):
         rgbImage = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
         convertToQtFormat = QImage(rgbImage.data, rgbImage.shape[1], rgbImage.shape[0], QImage.Format_RGB888)
@@ -55,9 +57,14 @@ class Thread(QThread):
         filepath,filename=os.path.split(self.filepath)
         fname,ext = os.path.splitext(filename)
         print('ext:%s'%ext)
-        if ext in image_exts:
+        if ext.lower() in image_exts:
             print('processing image...')
             frame = cv2.imread(self.filepath)
+            if frame is None:
+                print('no file exists')
+                return
+            h,w,c=frame.shape
+            frame = cv2.resize(frame,(int(w/4)*4,int(h/4)*4))
             frame = self.estimator.process_all(frame) if self.estimator else frame
             rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             convertToQtFormat = QImage(rgbImage.data, rgbImage.shape[1], rgbImage.shape[0], QImage.Format_RGB888)
@@ -67,12 +74,14 @@ class Thread(QThread):
             self.isfinished = True
             self.image = frame.copy()
             
-        elif ext in video_exts:
+        elif ext.lower() in video_exts:
             cap = cv2.VideoCapture(os.path.abspath(self.filepath))
             while True:
                 ret, frame = cap.read()
                 if ret is False:
                     break
+                h,w,c=frame.shape
+                frame = cv2.resize(frame,(int(w/4)*4,int(h/4)*4))
                 frame = self.estimator.process_all(frame) if self.estimator else frame
                 rgbImage = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 convertToQtFormat = QImage(rgbImage.data, rgbImage.shape[1], rgbImage.shape[0], QImage.Format_RGB888)
@@ -91,17 +100,14 @@ class Thread(QThread):
         
     def setsize(self,width,height):
         self.width,self.height = width,height
-   
+    
 class Dialog(QDialog):
-    
     up_camera_signal = QtCore.pyqtSignal(QImage)
-    
-    def __init__(self, estimator):
-        super(Dialog, self).__init__(None)
+    def __init__(self, parent = None):
+        super(Dialog, self).__init__(parent)
         self.isfinished = False
-        self.estimator = estimator
         self.initialize()
-        
+
     def act_fileopen(self):
         filepath,extensions = QFileDialog.getOpenFileName(self, r'File Open','',"Image/Video Files (*.jpeg *.jpg *.png *.avi *.mpeg *.mpg *.mp4)")
         self.thread.setpath(filepath)
@@ -116,6 +122,7 @@ class Dialog(QDialog):
         reply = QMessageBox.question(self, 'warning',
                                      "Are you sure to quit dialog?", QMessageBox.Yes | 
                                      QMessageBox.No, QMessageBox.No)
+
         if reply == QMessageBox.Yes:
             self.thread.quit()
             self.deleteLater()
@@ -141,37 +148,29 @@ class Dialog(QDialog):
         self.setLayout(vbox)
         ###
         self.thread = Thread(self)
-        self.thread.setestimator(self.estimator)
         self.thread.changePixmap.connect(self.label.setPixmap)
         ###
-        self.setMinimumSize(500,350)
-        self.setWindowTitle("Demo")  
+        self.setMinimumSize(1080,640)
+        #self.showMaximized()
+        self.setWindowTitle("Demo")
         self.show()
-        
+
     def resizeEvent(self, event):
         #self.resized.emit()
         width = self.frameGeometry().width()
         height = self.frameGeometry().height()
         self.thread.setsize(width-30,height-30)
-        if not self.thread.isFinished():
+        if self.thread.isFinished():
             self.thread.refresh()
         self.label.setGeometry(QtCore.QRect(0, height-20, width-20, 20))
         self.label.setVisible(True)
         self.update()
         return super(Dialog, self).resizeEvent(event)
-    
-    def setestimator(self,estimator):
-        self.estimator = estimator
-        self.thread.setestimator(estimator)
-  
+      
 if __name__ == "__main__":
-    #
-    est = None#Estimator('model.h5')
-    # Create an PyQT5 application object.
     app = QApplication.instance()
     if not app:
         app = QApplication(sys.argv)
     app.aboutToQuit.connect(app.deleteLater)
-    Dialog(estimator=est)
-    sys.exit(app.exec_())      
-    
+    ex = Dialog()
+    sys.exit(app.exec_())
