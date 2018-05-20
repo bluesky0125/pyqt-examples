@@ -120,7 +120,7 @@ class Dialog(QDialog):
             return
         
         reply = QMessageBox.question(self, 'warning',
-                                     "Are you sure to quit dialog?", QMessageBox.Yes | 
+                                     "Are you sure to quit the dialog?", QMessageBox.Yes | 
                                      QMessageBox.No, QMessageBox.No)
 
         if reply == QMessageBox.Yes:
